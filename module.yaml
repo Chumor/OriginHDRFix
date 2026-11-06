@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/KernelSU-Modules/tools/main/schemas/module.schema.json
+schemaVersion: 1
+id: originhdrfix
+name: OriginHDRFix
+summary: Restore HDR highlight rendering in supported OriginOS apps.
+description: docs/README.md
+license: GPL-3.0-only
+homepage: https://github.com/Chumor/OriginHDRFix
+support: https://github.com/Chumor/OriginHDRFix/issues
+tags: [display, system]
+metamodule: false
+
+authors:
+  - name: Chumor
+    url: https://github.com/Chumor
+
+compatibility:
+  androidMinApi: 36
+  architectures: [arm64-v8a]

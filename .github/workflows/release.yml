@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "module/module.prop"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: originhdrfix-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Read release version
+        id: release
+        run: |
+          release_tag="$(sed -n 's/^version=//p' module/module.prop)"
+          echo "release-tag=${release_tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate prepared stable release metadata
+        id: metadata
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.release-tag }}
+        run: |
+          python3 scripts/validate_release_metadata.py --tag "$RELEASE_TAG" --check-release
+          version_code="$(sed -n 's/^versionCode=//p' module/module.prop)"
+          module_name="$(sed -n 's/^name=//p' module/module.prop)"
+          asset_name="${module_name}-${RELEASE_TAG}-${version_code}.zip"
+          {
+            echo "asset-name=${asset_name}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check installer behavior
+        run: python3 scripts/test_customize.py
+
+      - uses: KernelSU-Modules/tools/actions/module-release@e0ac1a6193e698beac3c2fc47dec88d180efca8a
+        id: precheck
+        with:
+          module-dir: module
+          tag: ${{ steps.release.outputs.release-tag }}
+          prerelease: ${{ contains(steps.release.outputs.release-tag, '-') }}
+          dry-run: true
+
+      - name: Name release ZIP
+        id: package
+        env:
+          SOURCE_ZIP: ${{ steps.precheck.outputs.zip-path }}
+          ASSET_NAME: ${{ steps.metadata.outputs.asset-name }}
+        run: |
+          mkdir -p dist
+          cp "$SOURCE_ZIP" "dist/${ASSET_NAME}"
+          echo "zip-path=dist/${ASSET_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish release ZIP
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.release.outputs.release-tag }}
+          ZIP_PATH: ${{ steps.package.outputs.zip-path }}
+          PRERELEASE: ${{ contains(steps.release.outputs.release-tag, '-') }}
+        run: |
+          release_args=(--target "$GITHUB_SHA" --title "$RELEASE_TAG" --generate-notes)
+          if [[ "$PRERELEASE" == "true" ]]; then
+            release_args+=(--prerelease --latest=false)
+          else
+            release_args+=(--latest)
+          fi
+          gh release create "$RELEASE_TAG" "$ZIP_PATH" "${release_args[@]}"

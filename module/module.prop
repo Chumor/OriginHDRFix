@@ -1,0 +1,7 @@
+id=originhdrfix
+name=OriginHDRFix
+version=v1.0.0
+versionCode=1
+author=Chumor
+description=OriginHDRFix is a KernelSU module for OriginOS that aims to restore HDR highlight rendering in supported applications.
+updateJson=https://raw.githubusercontent.com/Chumor/OriginHDRFix/main/update/update.json

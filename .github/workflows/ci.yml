@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "module/**"
+      - "module.yaml"
+      - "update/**"
+      - "scripts/**"
+      - "docs/**"
+      - "README.md"
+      - "LICENSE"
+      - ".github/workflows/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "module/**"
+      - "module.yaml"
+      - "update/**"
+      - "scripts/**"
+      - "docs/**"
+      - "README.md"
+      - "LICENSE"
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check release metadata
+        run: python3 scripts/validate_release_metadata.py
+
+      - name: Check installer behavior
+        run: python3 scripts/test_customize.py
+
+      - name: Lint GitHub Actions workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 .github/workflows/*.yml
+
+      - name: Prepare Canary module metadata
+        id: canary
+        run: |
+          base_version="$(sed -n 's/^version=//p' module/module.prop)"
+          version_code="$(git rev-list --count HEAD)"
+          module_dir="${RUNNER_TEMP}/originhdrfix-canary"
+          mkdir -p "$module_dir"
+          cp -R module/. "$module_dir/"
+          version="${base_version} (${version_code}-canary)"
+          sed -i "s|^version=.*|version=${version}|; s|^versionCode=.*|versionCode=${version_code}|" "$module_dir/module.prop"
+          {
+            echo "module-dir=${module_dir}"
+            echo "base-version=${base_version}"
+            echo "version-code=${version_code}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build and precheck Canary module ZIP
+        id: package
+        uses: KernelSU-Modules/tools/actions/module-release@e0ac1a6193e698beac3c2fc47dec88d180efca8a
+        with:
+          module-dir: ${{ steps.canary.outputs.module-dir }}
+          dry-run: true
+
+      - name: Name module ZIP artifact
+        id: artifact
+        env:
+          SOURCE_ZIP: ${{ steps.package.outputs.zip-path }}
+          BASE_VERSION: ${{ steps.canary.outputs.base-version }}
+          VERSION_CODE: ${{ steps.package.outputs.version-code }}
+        run: |
+          module_name="$(sed -n 's/^name=//p' module/module.prop)"
+          asset_name="${module_name}-${BASE_VERSION}-${VERSION_CODE}-canary.zip"
+          mkdir -p dist
+          cp "$SOURCE_ZIP" "dist/${asset_name}"
+          echo "asset-name=${asset_name}" >> "$GITHUB_OUTPUT"
+          echo "zip-path=dist/${asset_name}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload module ZIP artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.artifact.outputs.asset-name }}
+          path: ${{ steps.artifact.outputs.zip-path }}
+          if-no-files-found: error
+          archive: false

@@ -2,6 +2,7 @@
 
 import shlex
 import subprocess
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -122,6 +123,76 @@ class CustomizeScriptTests(unittest.TestCase):
                     )
                     self.assertEqual(result.returncode, status, result.stderr)
                     self.assertEqual(result.stdout, "ctl.restart vivo-configstore-hal-1-0\n")
+
+
+class ActionScriptTests(unittest.TestCase):
+    def test_collects_supplemental_diagnostics_and_cleans_up(self) -> None:
+        for dumpsys_status, tar_failure in ((0, False), (1, False), (0, True)):
+            with self.subTest(dumpsys_status=dumpsys_status, tar_failure=tar_failure):
+                with tempfile.TemporaryDirectory(prefix="originhdrfix-action-") as directory:
+                    root = Path(directory)
+                    module = root / "module"
+                    device = root / "device"
+                    downloads = root / "Download"
+                    files = {
+                        "vendor/etc/vivo_config.ini": b"stock HDR configuration",
+                        "vendor/etc/displayconfig/display test.xml": b"<display />",
+                        "sys/lcm/panel_name": b"test_panel",
+                        "sys/lcm/panel_info": b"panel info",
+                        "sys/lcm/error_info": b"no error",
+                        "sys/lcm/bl_level": b"1200",
+                        "system/etc/LcmConfig/LcmBrightnessConfig.json": b"stock panel calibration",
+                        "system/etc/LcmConfig/XdrBrightnessConfig.json": b"{}",
+                        "system/framework/vivo-framework.jar": b"vivo framework bytes",
+                        "system/framework/vivo-services.jar": b"vivo services bytes",
+                    }
+                    module_files = {
+                        "system.prop": b"HDR property overrides",
+                        "system/vendor/etc/vivo_config.ini": b"installed HDR configuration",
+                        "system/etc/LcmConfig/LcmBrightnessConfig.json": b"installed calibration",
+                    }
+                    for base, entries in ((device, files), (module, module_files)):
+                        for name, content in entries.items():
+                            path = base / name
+                            path.parent.mkdir(parents=True, exist_ok=True)
+                            path.write_bytes(content)
+                    script = (ROOT / "module/action.sh").read_text(encoding="utf-8")
+                    script = script.replace("\n  /vendor/", f"\n  {device}/vendor/")
+                    script = script.replace("\n  /sys/", f"\n  {device}/sys/")
+                    script = script.replace("\n  /system/", f"\n  {device}/system/")
+                    script = script.replace("/sdcard/Download", str(downloads))
+                    action = module / "action.sh"
+                    action.write_text(script, encoding="utf-8")
+                    command = 'dumpsys_status=$1; dumpsys() { printf "dumpsys %s\\n" "$*"; return "$dumpsys_status"; }; '
+                    if tar_failure:
+                        command += 'tar() { return 1; }; '
+                    result = subprocess.run(
+                        ["sh", "-c", command + '. "$0"', str(action), str(dumpsys_status)],
+                        cwd=root,
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    self.assertEqual(list(module.glob(".bugreport.*")), [])
+                    reports = list(downloads.glob("OriginHDRFix_bugreport_*.tar.gz"))
+                    if tar_failure:
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertEqual(reports, [])
+                        self.assertNotIn("Saved to:", result.stdout)
+                        continue
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(len(reports), 1)
+                    expected = {str(device / name).lstrip("/"): content for name, content in files.items()}
+                    expected.update({"module/" + name: content for name, content in module_files.items()})
+                    expected["display.txt"] = b"dumpsys display\n"
+                    expected["surfaceflinger.txt"] = b"dumpsys SurfaceFlinger --display-id\n"
+                    expected["surfaceflinger-layers.txt"] = b"dumpsys SurfaceFlinger --list\n"
+                    with tarfile.open(reports[0]) as archive:
+                        members = {item.name.removeprefix("./"): item for item in archive if item.isfile()}
+                        self.assertEqual(set(members), set(expected))
+                        for name, content in expected.items():
+                            self.assertEqual(archive.extractfile(members[name]).read(), content)
+                    self.assertIn(str(reports[0]), result.stdout)
 
 
 if __name__ == "__main__":

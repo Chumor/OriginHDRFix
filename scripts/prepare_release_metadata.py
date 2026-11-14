@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+
+import argparse
+import json
+from pathlib import Path
+from urllib.parse import quote
+
+import validate_release_metadata as metadata
+
+
+def prepare_release(notes_path: Path) -> None:
+    module = metadata.read_module_prop()
+    version = module["version"]
+    version_code = int(module["versionCode"])
+    asset_name = f"{module['name']}-{version}-{version_code}.zip"
+    update = {
+        "version": version,
+        "versionCode": version_code,
+        "zipUrl": (
+            f"https://github.com/{metadata.REPOSITORY}/releases/download/"
+            f"{version}/{quote(asset_name, safe='')}"
+        ),
+        "changelog": (
+            f"https://raw.githubusercontent.com/{metadata.REPOSITORY}"
+            "/main/update/CHANGELOG.md"
+        ),
+    }
+    (metadata.ROOT / "update/update.json").write_text(
+        json.dumps(update, indent=2) + "\n", encoding="utf-8"
+    )
+    changelog_path = metadata.ROOT / "update/CHANGELOG.md"
+    history = changelog_path.read_text(encoding="utf-8").removeprefix("# Changelog\n\n")
+    notes = notes_path.read_text(encoding="utf-8").rstrip()
+    changelog_path.write_text(f"# Changelog\n\n{notes}\n\n{history}", encoding="utf-8")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("notes", type=Path)
+    prepare_release(parser.parse_args().notes)

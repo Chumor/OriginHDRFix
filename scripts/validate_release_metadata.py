@@ -71,18 +71,6 @@ def main() -> None:
         fail(
             f"module.prop versionCode must be a positive integer: {raw_version_code!r}"
         )
-    changelog = (ROOT / "update/CHANGELOG.md").read_text(encoding="utf-8").splitlines()
-    heading = f"## {semver}"
-    if heading not in changelog:
-        fail(f"update/CHANGELOG.md must include a heading for version {version}")
-    heading_index = changelog.index(heading)
-    version_notes = []
-    for line in changelog[heading_index + 1 :]:
-        if line.startswith("## "):
-            break
-        version_notes.append(line)
-    if not any(line.lstrip().startswith(("- ", "* ")) for line in version_notes):
-        fail(f"update/CHANGELOG.md must include at least one list item under {heading}")
 
     if args.tag:
         if not TAG_PATTERN.fullmatch(args.tag):
@@ -94,6 +82,19 @@ def main() -> None:
             )
 
     if args.check_release:
+        changelog = (ROOT / "update/CHANGELOG.md").read_text(encoding="utf-8").splitlines()
+        heading = f"## What's Changed in {semver.removeprefix('v')}"
+        if heading not in changelog:
+            fail(f"update/CHANGELOG.md must include a heading for version {version}")
+        heading_index = changelog.index(heading)
+        version_notes = []
+        for line in changelog[heading_index + 1 :]:
+            if line.startswith("## "):
+                break
+            version_notes.append(line)
+        if not any(line.lstrip().startswith(("- ", "* ")) for line in version_notes):
+            fail(f"update/CHANGELOG.md must include at least one list item under {heading}")
+
         update = json.loads((ROOT / "update/update.json").read_text(encoding="utf-8"))
         update_version = update.get("version", "")
         update_module_version = MODULE_VERSION_PATTERN.fullmatch(update_version)

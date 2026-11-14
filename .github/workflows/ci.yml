@@ -9,6 +9,7 @@ on:
       - "module.yaml"
       - "update/**"
       - "scripts/**"
+      - "cliff.toml"
       - "docs/**"
       - "README.md"
       - "LICENSE"
@@ -20,6 +21,7 @@ on:
       - "module.yaml"
       - "update/**"
       - "scripts/**"
+      - "cliff.toml"
       - "docs/**"
       - "README.md"
       - "LICENSE"
@@ -31,8 +33,11 @@ permissions:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -42,6 +47,9 @@ jobs:
 
       - name: Check installer behavior
         run: python3 scripts/test_customize.py
+
+      - name: Check release metadata automation
+        run: python3 scripts/test_release_metadata.py
 
       - name: Lint GitHub Actions workflows
         run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 .github/workflows/*.yml

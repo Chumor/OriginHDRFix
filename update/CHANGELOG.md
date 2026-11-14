@@ -4,13 +4,10 @@
 ## What's Changed in 1.0.1
 
 
-* ci: automate module releases with git-cliff by @Chumor
-* fix: set the Ultra HDR flag required by OriginOS 5 by @Chumor
-* feat: collect supplemental HDR diagnostics from module action by @Chumor
-* Initial commit by @Chumor
-
-### New Contributors
-* @Chumor made their first contribution
+* ci: automate module releases with git-cliff
+* fix: set the Ultra HDR flag required by OriginOS 5
+* feat: collect supplemental HDR diagnostics from module action
+* Initial commit
 
 **Full Changelog**: [v1.0.0...v1.0.1](https://github.com/Chumor/OriginHDRFix/compare/v1.0.0...v1.0.1)
 

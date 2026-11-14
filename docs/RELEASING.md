@@ -1,6 +1,6 @@
 # 自动发版
 
-版本以 `module/module.prop` 的 `version`（`vMAJOR.MINOR.PATCH[-PRERELEASE]`）和
+版本以 `module/module.prop` 的 `version`（`vMAJOR.MINOR.PATCH`）和
 `versionCode` 为准。准备新版本时更新这两个字段；`versionCode` 必须递增，Tag 必须未使用。
 无需提前修改 `update/update.json` 或 `update/CHANGELOG.md`。
 
@@ -10,10 +10,10 @@
 
 工作流沿用 KernelSU module-release Action 打包、预检，在触发工作流的源码提交上创建 Tag，
 上传 Draft Release，核对 Tag、Release Notes、ZIP 名称、上传状态和 SHA-256 后发布。
-预发布版本保留 GitHub prerelease 标记，且不设为 Latest。
 
-正式发布后，工作流将同一份 Notes 放入 `update/CHANGELOG.md` 顶部，保留既有历史，
-并同步 `update/update.json`。这两个文件以独立的
+正式发布后，工作流将 Notes 的变更条目和 Full Changelog 放入 `update/CHANGELOG.md` 顶部，
+移除作者署名、关联 PR 链接和 New Contributors，保留既有历史；GitHub Release Notes 保留完整署名。
+工作流同时同步 `update/update.json`。这两个文件以独立的
 `chore(release): sync version <tag> [skip ci]` 提交写回 `main`；
 `cliff.toml` 过滤该提交，Tag 始终保留在源码提交上。
 同步提交通过普通 rebase 接到最新 `main`，随后正常推送，不执行强推。

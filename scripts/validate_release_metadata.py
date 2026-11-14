@@ -10,11 +10,7 @@ from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parent.parent
 NUMBER = r"(?:0|[1-9][0-9]*)"
-PRERELEASE_ID = rf"(?:{NUMBER}|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)"
-VERSION_PATTERN = (
-    rf"{NUMBER}\.{NUMBER}\.{NUMBER}"
-    rf"(?:-{PRERELEASE_ID}(?:\.{PRERELEASE_ID})*)?"
-)
+VERSION_PATTERN = rf"{NUMBER}\.{NUMBER}\.{NUMBER}"
 MODULE_VERSION_PATTERN = re.compile(rf"(?P<base>v{VERSION_PATTERN})")
 TAG_PATTERN = re.compile(r"v" + VERSION_PATTERN)
 REPOSITORY = "Chumor/OriginHDRFix"
@@ -52,7 +48,7 @@ def main() -> None:
     module_version = MODULE_VERSION_PATTERN.fullmatch(version)
     if module_version is None:
         fail(
-            "module.prop version must use vMAJOR.MINOR.PATCH[-PRERELEASE]: "
+            "module.prop version must use vMAJOR.MINOR.PATCH: "
             f"{version!r}"
         )
     base_version = module_version.group("base")
@@ -74,7 +70,7 @@ def main() -> None:
 
     if args.tag:
         if not TAG_PATTERN.fullmatch(args.tag):
-            fail(f"release tag must use vMAJOR.MINOR.PATCH[-PRERELEASE]: {args.tag!r}")
+            fail(f"release tag must use vMAJOR.MINOR.PATCH: {args.tag!r}")
         if args.tag != base_version:
             fail(
                 f"release tag {args.tag!r} does not match module.prop version "
@@ -100,7 +96,7 @@ def main() -> None:
         update_module_version = MODULE_VERSION_PATTERN.fullmatch(update_version)
         if update_module_version is None:
             fail(
-                "update/update.json version must use vMAJOR.MINOR.PATCH[-PRERELEASE]: "
+                "update/update.json version must use vMAJOR.MINOR.PATCH: "
                 f"{update_version!r}"
             )
         update_version_code = update.get("versionCode")

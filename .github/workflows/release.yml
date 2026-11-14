@@ -85,7 +85,6 @@ jobs:
         with:
           module-dir: module
           tag: ${{ steps.release.outputs.release-tag }}
-          prerelease: ${{ contains(steps.release.outputs.release-tag, '-') }}
           dry-run: true
 
       - name: Name release ZIP
@@ -103,16 +102,13 @@ jobs:
         env:
           RELEASE_TAG: ${{ steps.release.outputs.release-tag }}
           ZIP_PATH: ${{ steps.artifact.outputs.zip-path }}
-          PRERELEASE: ${{ contains(steps.release.outputs.release-tag, '-') }}
         run: |
           # Create a lightweight tag at the packaged source, never at the later sync commit.
           gh api "repos/${GH_REPO}/git/refs" \
             -f "ref=refs/tags/${RELEASE_TAG}" -f "sha=${GITHUB_SHA}"
-          release_args=(--draft --verify-tag --target "$GITHUB_SHA" --title "$RELEASE_TAG" --notes-file "$NOTES_FILE")
-          if [[ "$PRERELEASE" == "true" ]]; then
-            release_args+=(--prerelease)
-          fi
-          gh release create "$RELEASE_TAG" "$ZIP_PATH" "${release_args[@]}"
+          gh release create "$RELEASE_TAG" "$ZIP_PATH" \
+            --draft --verify-tag --target "$GITHUB_SHA" \
+            --title "$RELEASE_TAG" --notes-file "$NOTES_FILE"
           gh release view "$RELEASE_TAG" --json databaseId --jq '"release-id=\(.databaseId)"' >> "$GITHUB_OUTPUT"
 
       - name: Verify draft and publish release
@@ -148,7 +144,7 @@ jobs:
             }
             await github.rest.repos.updateRelease({
               owner, repo, release_id, draft: false,
-              make_latest: draft.prerelease ? 'false' : 'true',
+              make_latest: 'true',
             });
             const { data: published } = await github.rest.repos.getRelease({ owner, repo, release_id });
             if (published.draft) {

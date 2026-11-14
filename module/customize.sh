@@ -7,10 +7,12 @@ awk '
     found = found || xdr
   }
   xdr && /^[[:space:]]*hdrui[[:space:]]*=/ { next }
+  xdr && /^[[:space:]]*ultraHdr[[:space:]]*=/ { next }
   xdr && /^[[:space:]]*is_support_zygote[[:space:]]*=/ { next }
   { print }
   xdr && /^\[/ {
     print "hdrui=true"
+    print "ultraHdr=true"
     print "is_support_zygote=1"
   }
   END { if (!found) exit 1 }

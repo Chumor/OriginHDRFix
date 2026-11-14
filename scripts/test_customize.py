@@ -53,14 +53,18 @@ class CustomizeScriptTests(unittest.TestCase):
             output = output_path.read_text(encoding="utf-8") if output_path.exists() else None
             return result, output
 
-    def test_rewrites_only_hdrui_in_target_section(self) -> None:
+    def test_rewrites_only_hdr_flags_in_target_section(self) -> None:
         source = (
             "[other]\n"
             "hdrui=false\n"
+            "ultraHdr=false\n"
             "[vivo.hardware.display.xdr]\n"
             "hdrui=false\n"
+            "ultraHdr=false\n"
             "is_support_zygote=0\n"
             "  hdrui = legacy\n"
+            "  ultraHdr = legacy\n"
+            "version=v2.0\n"
             "mode=1\n"
             "[last]\n"
             "hdrui=false\n"
@@ -72,9 +76,12 @@ class CustomizeScriptTests(unittest.TestCase):
             output,
             "[other]\n"
             "hdrui=false\n"
+            "ultraHdr=false\n"
             "[vivo.hardware.display.xdr]\n"
             "hdrui=true\n"
+            "ultraHdr=true\n"
             "is_support_zygote=1\n"
+            "version=v2.0\n"
             "mode=1\n"
             "[last]\n"
             "hdrui=false\n",
@@ -88,9 +95,36 @@ class CustomizeScriptTests(unittest.TestCase):
             output,
             "[vivo.hardware.display.xdr]\n"
             "hdrui=true\n"
+            "ultraHdr=true\n"
             "is_support_zygote=1\n"
             "mode=1\n",
         )
+
+    def test_preserves_device_config_on_reinstall(self) -> None:
+        for version in ("v2.0", "v3.0"):
+            with self.subTest(version=version):
+                source = (
+                    "[vivo.hardware.display.xdr]\n"
+                    f"version={version}\n"
+                    "xdr_switch_time=1500\n"
+                    "[vivo.hardware.display.xdr_video]\n"
+                    "app_hdr=true\n"
+                )
+                result, output = self.install(source)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(
+                    output,
+                    source.replace(
+                        "[vivo.hardware.display.xdr]\n",
+                        "[vivo.hardware.display.xdr]\n"
+                        "hdrui=true\n"
+                        "ultraHdr=true\n"
+                        "is_support_zygote=1\n",
+                    ),
+                )
+                reinstall, reinstalled = self.install(output)
+                self.assertEqual(reinstall.returncode, 0, reinstall.stderr)
+                self.assertEqual(reinstalled, output)
 
     def test_fails_when_target_section_is_missing(self) -> None:
         result, _ = self.install("[other]\nvalue=1\n")
